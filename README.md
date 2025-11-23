@@ -46,22 +46,32 @@ RegulaDocs operates as a pipeline to ensure data integrity between the code and 
 
 ### Prerequisites
 
-- Node.js v18+
-- Docker (optional, for containerized scanning)
-- `syft` and `grype` installed (or use our bundled Docker image)
+- Go 1.21+ (for building from source)
+- `syft` and `grype` installed locally, OR
+- Use our bundled binaries (auto-downloaded on first use)
 
 ### Installation
 
+**Option 1: Download Binary (Recommended)**
+
+```bash
+# Download latest release for your platform
+curl -sSfL https://github.com/straumandi/reguladocs/releases/latest/download/reguladocs_$(uname -s)_$(uname -m).tar.gz | tar xz
+sudo mv reguladocs /usr/local/bin/
+```
+
+**Option 2: Build from Source**
+
 ```bash
 # Clone the repo
-git clone [https://github.com/straumandi/reguladocs.git](https://github.com/straumandi/reguladocs.git)
+git clone https://github.com/straumandi/reguladocs.git
 cd reguladocs
 
-# Install dependencies
-npm install
+# Build the binary
+go build -o reguladocs ./cmd/reguladocs
 
-# Link command globally (optional)
-npm link
+# Install globally (optional)
+sudo mv reguladocs /usr/local/bin/
 ```
 
 ### Usage
@@ -103,19 +113,21 @@ To prevent "alert fatigue," you can define false positives or accepted risks. Th
 
 ## 🛠️ Tech Stack
 
-- **Core:** Node.js (TypeScript)
+- **Core:** Go (single binary, zero dependencies)
 - **Scanning Engine:** [Syft](https://github.com/anchore/syft) & [Grype](https://github.com/anchore/grype)
-- **Database (SaaS ver.):** PostgreSQL (Supabase)
-- **PDF Engine:** `pdfmake` / `puppeteer`
+- **Database (SaaS ver.):** PostgreSQL (Railway/Render)
+- **PDF Engine:** Go-based HTML → PDF renderer (wkhtmltopdf/chromedp)
 
 ---
 
 ## 🗺️ Roadmap
 
-- [ ] **v0.1:** Local CLI scanner & JSON parsing.
+- [x] **v0.1:** Local CLI scanner with SBOM generation.
 - [ ] **v0.2:** PDF Report generation with "Traffic Light" summary.
-- [ ] **v0.3:** GitHub Action integration (CI/CD).
-- [ ] **v1.0:** SaaS Web Dashboard with historical tracking & Agency White-labeling.
+- [ ] **v0.3:** VEX (ignore rules) implementation with `.vex-config.json`.
+- [ ] **v0.4:** License key system for white-labeling (paid feature).
+- [ ] **v0.5:** GitHub Action integration (CI/CD).
+- [ ] **v1.0:** SaaS Web Dashboard with continuous monitoring (if demand exists).
 
 ---
 

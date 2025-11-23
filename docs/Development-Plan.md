@@ -1,100 +1,126 @@
 # RegulaDocs Development Plan
 
-> **Practical roadmap to build an automated CRA compliance & SBOM generator from MVP to production SaaS.**
+> **Practical roadmap to build an automated CRA compliance & SBOM generator - CLI-first approach.**
 
 ---
 
 ## 📋 Executive Summary
 
-**Objective:** Build RegulaDocs as a compliance automation platform that converts code dependencies into EU Cyber Resilience Act (CRA) compliant documentation.
+**Objective:** Build RegulaDocs as a compliance automation CLI tool that converts code dependencies into EU Cyber Resilience Act (CRA) compliant documentation.
 
-**Timeline:** 16 weeks (4 months) from MVP to market-ready SaaS  
-**Target Market:** EU software agencies (10-50 employees) at €149/month  
+**Strategy:** CLI-First → License Revenue → SaaS (if demand exists)  
+**Timeline:** 8 weeks to first revenue, 16 weeks to SaaS (optional)  
+**Target Market:** EU software agencies (10-50 employees)  
 **Core Value:** Reduce 2-day manual compliance work to 5 minutes
 
 ---
 
 ## 🎯 Success Metrics
 
-| Metric             | Target                          | Timeline |
-| ------------------ | ------------------------------- | -------- |
-| **MVP Completion** | Working CLI + PDF output        | Week 4   |
-| **First 10 Users** | Beta testers from cold outreach | Week 8   |
-| **€1,000 MRR**     | 7 paying agencies               | Week 12  |
-| **€10,000 ARR**    | 60+ paying customers            | Week 16+ |
+| Metric                    | Target                                        | Timeline |
+| ------------------------- | --------------------------------------------- | -------- |
+| **CLI MVP**               | Working binary + PDF output                   | Week 4   |
+| **First 10 Beta Users**   | Free testing with agencies                    | Week 6   |
+| **First Paying Customer** | €49 license sale                              | Week 8   |
+| **€1,000 Revenue**        | ~20 license sales OR 6 pro licenses           | Week 12  |
+| **SaaS Decision Point**   | Build web version if 50+ customers request it | Week 16  |
 
 ---
 
 ## 🏗️ Architecture Overview
 
-![Architecture Diagram](images/architecture-overview.svg)
-
-Architecture Diagram Code:
+### **Phase 1: CLI Tool (Weeks 1-8)**
 
 ```mermaid
-graph TB
-    A[GitHub Repository] -->|Webhook| B[API Gateway]
-
-    B --> C[Job Queue - SQS]
-    C --> D[Docker Worker - ECS/Fargate]
-    D --> E1[Syft - SBOM Generation]
-    D --> E2[Grype - CVE Scanning]
-    E1 --> F[Data Normalizer]
-    E2 --> F
-    F --> G[(Supabase PostgreSQL)]
-    G --> H[PDF Generator]
-    H --> I[Client Dashboard]
-    I --> J[Branded PDF Report]
+graph LR
+    A[Local Repository] --> B[reguladocs CLI]
+    B --> C[Syft Scanner]
+    B --> D[Grype Scanner]
+    C --> E[SBOM JSON]
+    D --> F[CVE Data]
+    E --> G[Report Generator]
+    F --> G
+    H[.vex-config.json] --> G
+    G --> I[Branded PDF Report]
 ```
 
 **Key Components:**
 
-- **Frontend:** Next.js + Tailwind CSS (Dashboard)
-- **Backend:** Node.js/TypeScript (API + Workers)
+- **CLI Binary:** Go (single executable, 10-15MB)
 - **Scanners:** Syft (SBOM) + Grype (vulnerabilities)
-- **Database:** Supabase (PostgreSQL with real-time)
-- **Queue:** AWS SQS (async job processing)
-- **Compute:** AWS ECS Fargate (containerized workers)
-- **Storage:** AWS S3 (PDF archives)
+- **PDF Engine:** chromedp (headless Chrome) OR wkhtmltopdf
+- **Storage:** Local filesystem only (no cloud dependency)
+- **Monetization:** License key system (validate against public API)
+
+### **Phase 2: SaaS (Weeks 9-16, OPTIONAL)**
+
+Only build if CLI customers are actively requesting continuous monitoring.
+
+```mermaid
+graph TB
+    A[GitHub Repository] -->|Webhook| B[Go API Server]
+    B --> C[Redis Queue]
+    C --> D[Go Worker Pool]
+    D --> E[Syft + Grype]
+    E --> F[(PostgreSQL on Railway)]
+    F --> G[PDF Generator]
+    G --> H[Next.js Dashboard]
+    H --> I[S3 Storage]
+```
+
+**Additional Components (if SaaS):**
+
+- **Backend:** Go API with Fiber/Echo framework
+- **Database:** PostgreSQL on Railway ($5/month)
+- **Queue:** Redis + worker pool
+- **Frontend:** Next.js + Tailwind CSS
+- **Auth:** Custom JWT (no Supabase)
 
 ---
 
 ## 📅 Phase-by-Phase Implementation
 
-### **Phase 1: Foundation & Local CLI (Weeks 1-4)**
+### **Phase 1: CLI MVP (Weeks 1-8)**
 
-> **Goal:** Build a working local CLI that scans code and outputs JSON reports.
+> **Goal:** Ship a paid CLI tool that generates compliance PDFs locally.
 
-#### **Week 1: Project Setup & Core Infrastructure**
+#### **Week 1: Go Project Setup & Core Infrastructure**
 
 **Tasks:**
 
-- [ ] Initialize Node.js/TypeScript project with modern tooling
-  - ESLint, Prettier, Husky for git hooks
-  - Jest for testing framework
-  - tsconfig strict mode enabled
-- [ ] Set up monorepo structure (optional: use Turborepo/Nx)
-
-```
-
-/packages
-/cli - Local scanning tool
-/core - Shared business logic
-/api - Backend API (future)
-/web - Next.js dashboard (future)
-
-```
-
-- [ ] Install and configure Syft + Grype
-- Docker-based approach (bundled container) OR
-- Local binaries with PATH detection
-- [ ] Create `.vex-config.json` schema validation (Zod/JSON Schema)
+- [ ] Initialize Go project structure
+  ```bash
+  reguladocs/
+  ├── cmd/reguladocs/        # Main CLI entry point
+  ├── internal/
+  │   ├── scanner/           # Syft/Grype wrappers
+  │   ├── parser/            # JSON parsing logic
+  │   ├── reporter/          # PDF generation
+  │   ├── vex/               # VEX config handling
+  │   └── license/           # License validation
+  ├── pkg/
+  │   └── models/            # Shared data structures
+  ├── testdata/              # Sample repos for testing
+  └── go.mod
+  ```
+- [ ] Set up Go tooling
+  - golangci-lint for code quality
+  - goreleaser for multi-platform builds
+  - GitHub Actions CI pipeline
+- [ ] Install Syft + Grype
+  - Test local execution: `syft . -o json`
+  - Test vulnerability scan: `grype sbom.json -o json`
+- [ ] Create CLI skeleton with Cobra
+  ```bash
+  reguladocs --version
+  reguladocs scan --help
+  ```
 
 **Deliverables:**
 
-- Working dev environment with TypeScript compilation
-- Documented setup instructions in README
-- Basic CLI skeleton (`reguladocs --version` works)
+- Working Go project with CI/CD
+- CLI compiles and runs on macOS/Linux/Windows
+- Basic command structure implemented
 
 ---
 
@@ -102,32 +128,41 @@ graph TB
 
 **Tasks:**
 
-- [ ] Implement `SyftRunner` class
-- Execute `syft <directory> -o json`
-- Parse SPDX/CycloneDX output formats
-- Error handling for unsupported projects
-- [ ] Build language detection logic
-- Auto-detect package managers (package.json, go.mod, Cargo.toml, pom.xml, requirements.txt)
-- Support for multiple languages in monorepos
-- [ ] Create data models for SBOM components
+- [ ] Implement `scanner.RunSyft()` function
+  - Execute Syft as subprocess
+  - Parse SPDX/CycloneDX JSON output
+  - Error handling for unsupported projects
+- [ ] Build package manager detection
+  - Auto-detect: package.json, go.mod, Cargo.toml, pom.xml, requirements.txt, composer.json
+  - Support monorepos (multiple package managers in subdirectories)
+- [ ] Create data models
 
-```typescript
-interface Component {
-  name: string;
-  version: string;
-  purl: string; // Package URL
-  licenses: string[];
-  type: "library" | "application" | "framework";
-  isDev: boolean; // devDependency flag
-}
-```
+  ```go
+  type Component struct {
+      Name      string   `json:"name"`
+      Version   string   `json:"version"`
+      PURL      string   `json:"purl"`
+      Licenses  []string `json:"licenses"`
+      Type      string   `json:"type"` // library, framework, application
+      IsDev     bool     `json:"is_dev"`
+  }
 
-- [ ] Write unit tests for SBOM parsing
+  type SBOM struct {
+      ProjectName string      `json:"project_name"`
+      Components  []Component `json:"components"`
+      GeneratedAt time.Time   `json:"generated_at"`
+      ToolVersion string      `json:"tool_version"`
+  }
+  ```
+
+- [ ] Filter devDependencies by default
+- [ ] Write unit tests with sample projects
 
 **Deliverables:**
 
 - CLI command: `reguladocs scan . --output sbom.json`
-- Sample SBOM output for test projects (Node.js, Go, Python)
+- Tested with 5 different language ecosystems
+- JSON output validates against SPDX schema
 
 ---
 
@@ -135,431 +170,302 @@ interface Component {
 
 **Tasks:**
 
-- [ ] Implement `GrypeRunner` class
-  - Execute `grype sbom:./sbom.json -o json`
-  - Parse vulnerability matches
-  - Map CVE data to components
-- [ ] Build VEX (Vulnerability Exploitability eXchange) logic
-  - Load `.vex-config.json` ignore rules
-  - Filter vulnerabilities based on user decisions
-  - Create audit trail structure
+- [ ] Implement `scanner.RunGrype()` function
+  - Execute Grype with SBOM input
+  - Parse CVE matches from JSON
+  - Map vulnerabilities to components
+- [ ] Build VEX config loader
+  - Parse `.vex-config.json` file (create JSON schema)
+  - Validate ignore rules structure
   ```json
   {
-    "cve": "CVE-2023-1234",
-    "status": "not_affected",
-    "justification": "Function not used",
-    "approved_by": "Andreas A.",
-    "date": "2025-05-20"
+    "project_name": "My Client App",
+    "agency_name": "CodeWorks GmbH",
+    "ignore_rules": [
+      {
+        "cve": "CVE-2023-1234",
+        "package": "lodash",
+        "status": "not_affected",
+        "justification": "Function not used",
+        "approved_by": "Andreas A.",
+        "date": "2025-05-20"
+      }
+    ]
   }
   ```
-- [ ] Implement severity scoring (CVSS → Traffic Light)
-  - **Red:** CVSS 9.0-10.0 (Critical)
-  - **Orange:** CVSS 7.0-8.9 (High)
-  - **Yellow:** CVSS 4.0-6.9 (Medium)
-  - **Green:** CVSS 0.0-3.9 (Low)
-- [ ] Filter devDependencies by default
+- [ ] Implement severity classification
+  - Critical: CVSS 9.0-10.0 (Red)
+  - High: CVSS 7.0-8.9 (Orange)
+  - Medium: CVSS 4.0-6.9 (Yellow)
+  - Low: CVSS 0.0-3.9 (Green)
+- [ ] Apply VEX filters to vulnerability list
+- [ ] Add `--include-dev` flag to optionally show devDependencies
 
 **Deliverables:**
 
-- CLI command: `reguladocs scan . --config .vex-config.json`
-- JSON output with categorized vulnerabilities
+- CLI command: `reguladocs scan . --config .vex-config.json --output vulnerabilities.json`
+- Vulnerability JSON with applied filters
+- Example .vex-config.json template
 
 ---
 
-#### **Week 4: PDF Report Generation (MVP "Aha!" Moment)**
+#### **Week 4: PDF Report Generation (THE PRODUCT)**
 
 **Tasks:**
 
-- [ ] Choose PDF engine: **pdfmake** (JSON-based) OR **Puppeteer** (HTML→PDF)
-  - Recommendation: pdfmake for templates, Puppeteer for complex layouts
-- [ ] Design PDF structure:
-  1. **Cover Page** (Project name, agency branding, date)
-  2. **Executive Summary** (Traffic light dashboard)
-  3. **SBOM Table** (All components with licenses)
-  4. **Vulnerability Report** (Grouped by severity)
-  5. **VEX Audit Trail** (Ignored vulnerabilities with justifications)
-  6. **Appendix** (Methodology, tool versions)
-- [ ] Implement templating system
-  - Support for white-labeling (logo upload)
-  - Configurable branding colors
-- [ ] Generate sample PDFs for 3 real-world projects
+- [ ] Choose PDF engine: chromedp (recommended) or wkhtmltopdf
+  - chromedp: HTML → headless Chrome → PDF (modern, clean output)
+  - Embeds Chrome in Go binary (adds 100MB but zero dependencies)
+- [ ] Design HTML template for PDF
+  1. **Cover Page**
+     - Project name
+     - Agency logo placeholder
+     - Report date
+     - "Generated by RegulaDocs"
+  2. **Executive Summary**
+     - Traffic light dashboard (colored boxes)
+     - Total components count
+     - Critical/High/Medium/Low vulnerability counts
+     - License risk summary
+  3. **Table of Contents**
+  4. **SBOM Table**
+     - Sortable by name, version, license
+     - Flag GPL/AGPL licenses in red
+  5. **Vulnerability Report**
+     - Grouped by severity
+     - CVE ID, package, description, CVSS score
+     - Remediation advice (upgrade to version X)
+  6. **VEX Audit Trail**
+     - List of ignored CVEs with justifications
+     - Approval signatures
+  7. **Appendix**
+     - Methodology description
+     - Syft/Grype versions used
+     - Scan timestamp
+- [ ] Implement Go HTML template rendering
+- [ ] Add CSS styling (Bootstrap or Tailwind CDN for quick styling)
+- [ ] Generate sample PDFs for 3 real projects
 
 **Deliverables:**
 
 - CLI command: `reguladocs scan . --output report.pdf`
-- Branded PDF that looks professional enough to show clients
-- **Internal demo:** Show to 3 agency owners for feedback
+- **CRITICAL:** PDF must look professional enough to email to clients
+- **Internal demo:** Show to 5 agency owners and collect feedback
 
 ---
 
-### **Phase 2: SaaS Backend & Database (Weeks 5-8)**
-
-> **Goal:** Build the API and database to move from local CLI to cloud-based continuous monitoring.
-
-#### **Week 5: Database Schema Design**
+#### **Week 5-6: White-Labeling & License System**
 
 **Tasks:**
 
-- [ ] Set up Supabase project (PostgreSQL + Auth)
-- [ ] Design relational schema:
-
-  ```sql
-  -- Core entities
-  users (id, email, agency_name, plan_tier, created_at)
-  projects (id, user_id, name, repo_url, last_scan_at)
-  scans (id, project_id, status, started_at, completed_at)
-  components (id, scan_id, name, version, purl, licenses, is_dev)
-  vulnerabilities (id, component_id, cve_id, severity, cvss_score)
-  vex_decisions (id, user_id, cve_id, package, status, justification, approved_by, approved_at)
-
-  -- Audit trail
-  scan_history (id, scan_id, previous_scan_id, new_vulns_count, fixed_vulns_count)
-  ```
-
-- [ ] Create migrations (use Supabase migrations or Prisma)
-- [ ] Implement Row-Level Security (RLS) policies
-  - Users can only access their own projects
-- [ ] Seed database with test data
-
-**Deliverables:**
-
-- Database schema documented in `docs/Database-Schema.md`
-- Working migrations
-
----
-
-#### **Week 6: REST API & Authentication**
-
-**Tasks:**
-
-- [ ] Build Express.js/Fastify API with TypeScript
-- [ ] Implement user authentication
-  - Supabase Auth (email/password + GitHub OAuth)
-  - JWT token validation middleware
-- [ ] Create API endpoints:
-  ```
-  POST   /api/projects              - Create new project
-  GET    /api/projects              - List user's projects
-  POST   /api/projects/:id/scan     - Trigger manual scan
-  GET    /api/scans/:id             - Get scan results
-  POST   /api/vex-decisions         - Save VEX ignore rule
-  GET    /api/reports/:scan_id/pdf  - Download PDF
-  ```
-- [ ] Input validation (Zod schemas)
-- [ ] Error handling middleware (standardized JSON errors)
-- [ ] Rate limiting (express-rate-limit)
-
-**Deliverables:**
-
-- Documented API with OpenAPI/Swagger spec
-- Postman collection for testing
-
----
-
-#### **Week 7: Background Job Queue & Docker Workers**
-
-**Tasks:**
-
-- [ ] Set up AWS SQS queue (or BullMQ with Redis for simpler start)
-- [ ] Create Docker container for scanner workers
-  ```dockerfile
-  FROM node:18-alpine
-  RUN apk add --no-cache curl git
-  RUN curl -sSfL https://raw.githubusercontent.com/anchore/syft/main/install.sh | sh
-  RUN curl -sSfL https://raw.githubusercontent.com/anchore/grype/main/install.sh | sh
-  COPY . /app
-  CMD ["node", "worker.js"]
-  ```
-- [ ] Implement worker logic:
-  1. Poll SQS for scan jobs
-  2. Clone target repository (with GitHub token)
-  3. Run Syft + Grype in isolated directory
-  4. Parse and normalize results
-  5. Insert data into Supabase
-  6. Update scan status
-  7. Trigger PDF generation
-  8. Send notification email
-- [ ] Deploy worker to AWS ECS Fargate (or Docker on VPS for MVP)
-- [ ] Implement job retry logic (3 attempts with exponential backoff)
-
-**Deliverables:**
-
-- Working async scan pipeline
-- Average scan time < 5 minutes for medium projects
-
----
-
-#### **Week 8: Smart Diffing & Change Detection**
-
-**Tasks:**
-
-- [ ] Implement scan comparison algorithm
-  - **New vulnerabilities:** CVE in current scan but not in previous
-  - **Fixed vulnerabilities:** CVE in previous scan but not in current
-  - **Changed dependencies:** Version updates
-- [ ] Build notification system
-  - Email alerts for new critical CVEs (SendGrid/AWS SES)
-  - Slack webhook integration (optional)
-- [ ] Create "Baseline" feature
-  - Allow users to mark current state as "Accepted Risk"
-  - Only alert on delta changes
-- [ ] Add database queries for historical analysis
-  ```sql
-  -- Example: Get new vulnerabilities since last scan
-  SELECT v.*
-  FROM vulnerabilities v
-  WHERE v.scan_id = :current_scan_id
-  AND v.cve_id NOT IN (
-    SELECT cve_id FROM vulnerabilities
-    WHERE scan_id = :previous_scan_id
-  )
-  ```
-
-**Deliverables:**
-
-- Email notification: "3 new critical vulnerabilities found in Project X"
-- Dashboard shows "diff view" between scans
-
----
-
-### **Phase 3: Frontend Dashboard (Weeks 9-12)**
-
-> **Goal:** Build the customer-facing web app where agencies manage projects and download reports.
-
-#### **Week 9: Next.js Setup & Authentication**
-
-**Tasks:**
-
-- [ ] Initialize Next.js 14 with App Router
-  - TypeScript + Tailwind CSS
-  - ESLint configured
-- [ ] Implement authentication pages
-  - `/login` - Email/password + GitHub OAuth button
-  - `/signup` - Registration with email verification
-  - Protected routes with middleware
-- [ ] Create layout system
-  - Sidebar navigation (Projects, Scans, Settings)
-  - Top bar (user menu, notifications)
-- [ ] Integrate Supabase client SDK
-  - Real-time subscriptions for scan status updates
-
-**Deliverables:**
-
-- Working authentication flow
-- Responsive layout (mobile-friendly)
-
----
-
-#### **Week 10: Project Management UI**
-
-**Tasks:**
-
-- [ ] Build Projects dashboard (`/dashboard/projects`)
-  - Table view with: Name, Last Scan, Status, Vulnerabilities Count
-  - "Add New Project" modal
-    - Manual repo URL input OR
-    - GitHub App integration (select from user's repos)
-- [ ] Implement Project Detail page (`/dashboard/projects/:id`)
-  - Overview stats: Total components, High/Medium/Low vulns
-  - Traffic light summary dashboard
-  - Scan history timeline
-- [ ] Create "Trigger Scan" button
-  - Calls `/api/projects/:id/scan`
-  - Shows loading state with real-time progress
-  - Uses Supabase real-time for status updates
-
-**Deliverables:**
-
-- Users can add projects and trigger scans from UI
-
----
-
-#### **Week 11: Vulnerability Management & VEX UI**
-
-**Tasks:**
-
-- [ ] Build Vulnerability explorer (`/dashboard/projects/:id/vulnerabilities`)
-  - Filterable table: Severity, Package, CVE ID, Status
-  - Search functionality
-- [ ] Create "Ignore CVE" modal
-  - Dropdown for status: `not_affected`, `false_positive`, `accepted_risk`
-  - Text area for justification (required)
-  - Input for approver name
-  - Preview of audit trail entry
-- [ ] Implement VEX decision management
-  - View all ignore rules (`/dashboard/vex-decisions`)
-  - Edit/Delete existing decisions
-  - Show which scans they apply to
-- [ ] Build SBOM viewer
-  - Searchable component list
-  - License compliance view (flag GPL if needed)
-
-**Deliverables:**
-
-- Non-technical users can manage false positives without touching JSON files
-
----
-
-#### **Week 12: Report Generation & White-Labeling**
-
-**Tasks:**
-
-- [ ] Build PDF generation endpoint in API
-  - Accepts scan ID + branding config
-  - Renders PDF using data from database
-  - Stores in S3 with expiring pre-signed URL
-- [ ] Create Settings page (`/dashboard/settings`)
-  - **Branding Tab:**
-    - Upload agency logo (Next.js Image with S3 upload)
-    - Select brand colors (color picker)
-    - Preview PDF template
-  - **Billing Tab:**
-    - Current plan display (€29 Starter / €149 Agency)
-    - Usage stats (scans this month, storage used)
-    - Stripe Customer Portal link (future)
-- [ ] Implement "Download Report" button
-  - Generates PDF with current white-label settings
-  - Download or email to client option
-- [ ] Add report archive (`/dashboard/reports`)
-  - List of all generated PDFs with download links
-  - 12-month retention policy
-
-**Deliverables:**
-
-- End-to-end flow: Scan → Review → Customize → Download branded PDF
-- **Internal milestone:** Show demo to beta testers
-
----
-
-### **Phase 4: Polish & Launch (Weeks 13-16)**
-
-> **Goal:** Prepare for public launch with billing, legal compliance, and marketing assets.
-
-#### **Week 13: Payment Integration & Subscription Logic**
-
-**Tasks:**
-
-- [ ] Integrate Stripe
-  - Create products: Starter (€29), Agency (€149), Enterprise (custom)
-  - Set up webhook endpoint (`/api/webhooks/stripe`)
-  - Handle events: `customer.subscription.created`, `invoice.payment_succeeded`, `subscription.deleted`
-- [ ] Implement subscription gates
-  - Starter: Max 3 projects
-  - Agency: Unlimited projects (soft cap at 50)
-  - Check limits before allowing new scans
-- [ ] Build billing portal
-  - Use Stripe Customer Portal for upgrades/cancellations
-  - Display next billing date and invoice history
-- [ ] Add usage tracking
-  - Count scans per month
-  - Storage used (PDF + SBOM files in S3)
-
-**Deliverables:**
-
-- Users can subscribe and pay via Stripe
-- Subscription status reflected in UI permissions
-
----
-
-#### **Week 14: GitHub App Integration**
-
-**Tasks:**
-
-- [ ] Create GitHub App
-  - Permissions: Read access to code, metadata, and webhooks
-  - Subscribe to `push` events
-- [ ] Implement OAuth flow for installation
-  - Users authorize app to access their repos
-  - Store installation token in database
-- [ ] Build automatic scanning trigger
-  - Webhook listener (`/api/webhooks/github`)
-  - On push to default branch → Queue scan job
-  - Configurable: Scan on every push OR weekly schedule
-- [ ] Add GitHub Action (optional)
+- [ ] Implement white-label configuration
+  - Create `~/.reguladocs/config.yaml` for user settings
   ```yaml
-  # .github/workflows/reguladocs.yml
-  name: CRA Compliance Scan
-  on: [push]
-  jobs:
-    scan:
-      runs-on: ubuntu-latest
-      steps:
-        - uses: reguladocs/scan-action@v1
-          with:
-            api-key: ${{ secrets.REGULADOCS_API_KEY }}
+  agency_name: "CodeWorks GmbH"
+  agency_logo: "/path/to/logo.png"
+  brand_color: "#1E3A8A"
+  license_key: "REGULA-XXXX-XXXX-XXXX"
+  ```
+- [ ] Build logo processor
+  - Accept PNG/JPG/SVG
+  - Resize to fit cover page (max 200x100px)
+  - Embed in PDF template
+- [ ] Create license key system
+  - License format: `REGULA-XXXX-XXXX-XXXX` (16 chars)
+  - On first run, prompt user to enter key
+  - Validate against simple public API endpoint
+  ```go
+  // Call https://api.reguladocs.com/v1/license/validate
+  // Returns: { "valid": true, "tier": "pro", "expires": "2025-12-31" }
+  ```
+- [ ] Implement tier-based features
+  - **Free tier:** Basic PDF (with "Powered by RegulaDocs" watermark)
+  - **Pro tier (€49):** Remove watermark, add logo, custom brand colors
+  - **Agency tier (€149):** Unlimited scans, priority support
+- [ ] Add `reguladocs init` command
+  - Interactive setup wizard
+  - Asks for: Agency name, logo path, license key
+  - Saves to config file
+
+**Deliverables:**
+
+- White-labeled PDFs with custom branding
+- License validation working
+- Config command: `reguladocs config --set agency_name="My Agency"`
+
+---
+
+#### **Week 7: CLI Polish & Testing**
+
+**Tasks:**
+
+- [ ] Add progress indicators
+  - Spinner during Syft scan (can take 30-60 seconds)
+  - Progress bar for large repos
+  ```
+  Scanning repository... ⠋
+  ✓ Found 1,247 packages
+  Analyzing vulnerabilities... ⠴
+  ✓ Identified 12 vulnerabilities (3 critical, 9 high)
+  Generating PDF... ⠙
+  ✓ Report saved to compliance-report.pdf
+  ```
+- [ ] Implement caching
+  - Cache SBOM results in `.reguladocs/cache/`
+  - Skip re-scan if package files unchanged
+  - `--force` flag to bypass cache
+- [ ] Add helpful error messages
+  - "Syft not found. Install with: curl -sSfL ... | sh"
+  - "License key invalid. Visit https://reguladocs.com/pricing"
+- [ ] Build auto-updater
+  - Check GitHub releases for new version
+  - `reguladocs update` command
+- [ ] Create comprehensive README
+  - Installation instructions
+  - Quick start guide
+  - CLI reference documentation
+- [ ] Cross-platform testing
+  - Test on macOS, Linux (Ubuntu), Windows
+  - Fix any path/shell issues
+
+**Deliverables:**
+
+- Polished CLI with excellent UX
+- Help documentation (`reguladocs --help` is comprehensive)
+- Bug-free on all 3 major platforms
+
+---
+
+#### **Week 8: Launch Preparation & First Sales**
+
+**Tasks:**
+
+- [ ] Create landing page (simple one-pager)
+  - Hero: "CRA Compliance in 5 Minutes"
+  - Demo video (2 minutes, show: install → scan → PDF)
+  - Pricing table: Free vs Pro (€49) vs Agency (€149)
+  - Stripe Checkout links
+- [ ] Set up payment processing
+  - Stripe Products for each tier
+  - Webhook to email license key after payment
+  - Auto-generate license keys (store in PostgreSQL on Railway)
+- [ ] Write sales email template
+
+  ```
+  Subject: Free CRA Compliance Audit for [Agency Name]
+
+  Hi [Name],
+
+  I noticed you're building software for EU clients. With the Cyber
+  Resilience Act coming into force, agencies need automated SBOM
+  documentation.
+
+  I built a tool that generates CRA-compliant PDFs in 5 minutes.
+
+  Want a free audit of one of your projects? No sales call required.
+
+  - Andreas
   ```
 
+- [ ] LinkedIn outreach to 50 agencies
+  - Offer free manual audit
+  - Send them a branded PDF of their project
+  - If they like it, pitch the CLI tool
+- [ ] Create GitHub Releases
+  - Pre-built binaries for macOS/Linux/Windows
+  - Release notes
+  - Installation instructions
+
 **Deliverables:**
 
-- Continuous monitoring: Scans run automatically on code changes
-- Listed in GitHub Marketplace (future growth channel)
+- Public website live at reguladocs.com
+- First 3 license sales (target: €150 revenue)
+- 10 beta users actively testing
 
 ---
 
-#### **Week 15: Security, Performance & Testing**
+### **Phase 2: SaaS Backend (Weeks 9-16, OPTIONAL)**
+
+> **Goal:** Only build this if CLI customers are requesting continuous monitoring.
+
+**Decision Criteria:**
+
+- 50+ CLI users asking: "Can this run automatically on every commit?"
+- OR: 10+ agencies willing to prepay €500 for SaaS version
+
+#### **Week 9-10: Go API Server & Database**
 
 **Tasks:**
 
-- [ ] Security hardening
-  - Run `npm audit` and fix vulnerabilities
-  - Implement CSRF protection (Next.js middleware)
-  - Add Content Security Policy headers
-  - Enable HTTPS everywhere (AWS ALB + ACM certificate)
-  - Secrets management (AWS Secrets Manager for API keys)
-- [ ] Performance optimization
-  - Database indexing (PostgreSQL EXPLAIN analysis)
-  - Frontend: Next.js Image optimization, code splitting
-  - CDN for static assets (CloudFront)
-  - Lazy loading for large tables
-- [ ] Comprehensive testing
-  - Unit tests: 80%+ coverage for core logic
-  - Integration tests: API endpoints with test database
-  - E2E tests: Playwright for critical flows (signup → scan → download PDF)
-- [ ] Load testing
-  - Simulate 100 concurrent scans (Artillery.io)
-  - Ensure workers auto-scale in ECS
-
-**Deliverables:**
-
-- Passing CI/CD pipeline (GitHub Actions)
-- Performance benchmarks documented
+- [ ] Set up Railway project (PostgreSQL + deployment)
+- [ ] Design database schema (simplified)
+  ```sql
+  users (id, email, license_key, created_at)
+  projects (id, user_id, name, repo_url, last_scan_at)
+  scans (id, project_id, status, scan_data_json, created_at)
+  vex_decisions (id, user_id, cve_id, package, status, justification)
+  ```
+- [ ] Build Go API with Fiber framework
+  - `POST /api/auth/register` - Create account
+  - `POST /api/auth/login` - JWT authentication
+  - `POST /api/projects` - Add repository
+  - `POST /api/projects/:id/scan` - Trigger scan (queues job)
+  - `GET /api/scans/:id` - Get scan results
+  - `GET /api/reports/:id/pdf` - Download PDF
+- [ ] Implement custom JWT auth (no Supabase)
+- [ ] Deploy API to Railway
 
 ---
 
-#### **Week 16: Legal Compliance & Go-Live Preparation**
+#### **Week 11-12: Background Workers & GitHub Integration**
 
 **Tasks:**
 
-- [ ] Legal documentation
-  - **Terms of Service** (explicitly state no legal advice)
-  - **Privacy Policy** (GDPR-compliant data handling)
-  - **GDPR compliance:**
-    - Data export feature (user can download all their data)
-    - Data deletion (GDPR "right to be forgotten")
-    - Cookie consent banner (if using analytics)
-  - Add disclaimer to footer:
-    > "RegulaDocs provides technical documentation based on automated analysis. We do not provide legal advice. Compliance with the Cyber Resilience Act remains the responsibility of the operator."
-- [ ] Marketing assets
-  - Landing page (`https://reguladocs.com`)
-    - Hero: "Turn Code into CRA Compliance in 5 Minutes"
-    - Social proof: Logos of beta testers (with permission)
-    - Video demo (Loom recording)
-  - SEO content
-    - Blog post: "EU Cyber Resilience Act: Complete Guide for Software Agencies"
-    - CRA Checklist PDF (lead magnet)
-  - LinkedIn outreach script
-- [ ] Monitoring & observability
-  - Set up Sentry for error tracking
-  - CloudWatch dashboards for API latency, worker queue depth
-  - Uptime monitoring (UptimeRobot)
-- [ ] Create onboarding flow
-  - Welcome email sequence (Day 0, 3, 7)
-  - In-app tutorial tooltips (first project setup)
+- [ ] Set up Redis for job queue
+- [ ] Build worker pool in Go
+  - Poll Redis for scan jobs
+  - Clone repo to temp directory
+  - Run Syft + Grype (reuse CLI code)
+  - Store results in PostgreSQL
+  - Generate PDF and upload to S3
+  - Clean up temp files
+- [ ] Create GitHub App
+  - Webhook listener for `push` events
+  - OAuth flow for repository access
+  - Auto-queue scans on code changes
+- [ ] Implement rate limiting (max 10 scans/hour per user)
 
-**Deliverables:**
+---
 
-- Production-ready application
-- **Launch:** Announce on LinkedIn, HackerNews, r/entrepreneur
+#### **Week 13-14: Next.js Dashboard**
+
+**Tasks:**
+
+- [ ] Build Next.js app with Tailwind CSS
+- [ ] Authentication pages (login/signup)
+- [ ] Projects dashboard
+  - List repositories
+  - Trigger manual scans
+  - View scan history
+- [ ] Vulnerability viewer with filters
+- [ ] VEX management UI
+- [ ] Settings page (branding, billing)
+
+---
+
+#### **Week 15-16: Stripe Subscriptions & Launch**
+
+**Tasks:**
+
+- [ ] Migrate license system to Stripe subscriptions
+  - Starter: €29/month (3 repos)
+  - Agency: €149/month (unlimited repos)
+- [ ] Add email notifications for new CVEs
+- [ ] Security hardening (HTTPS, CORS, rate limiting)
+- [ ] Launch marketing campaign
+  - Blog post: "From CLI to SaaS in 8 Weeks"
+  - GitHub Marketplace listing
+  - LinkedIn ads (€500 budget)
 
 ---
 
@@ -567,197 +473,149 @@ interface Component {
 
 ### **Technical Risks**
 
-| Risk                            | Impact | Mitigation                                             |
-| ------------------------------- | ------ | ------------------------------------------------------ |
-| **Syft/Grype breaking changes** | High   | Pin versions in Docker, monitor release notes          |
-| **GitHub rate limits**          | Medium | Use GitHub App tokens (5000 req/hr), implement caching |
-| **Scan timeouts (large repos)** | High   | Set 15-min timeout, incremental scanning (future)      |
-| **PDF generation memory leaks** | Medium | Isolated workers, restart after 50 jobs                |
+| Risk                                  | Impact   | Mitigation                                                  |
+| ------------------------------------- | -------- | ----------------------------------------------------------- |
+| **PDF quality looks amateur**         | Critical | Hire designer for €200 to create HTML template              |
+| **Syft/Grype binary not found**       | High     | Bundle binaries in Docker image, auto-download on first run |
+| **Cross-platform compilation issues** | Medium   | Use goreleaser, test on all platforms in CI                 |
+| **License key piracy**                | Medium   | Online validation required, rate-limited API calls          |
 
 ### **Business Risks**
 
-| Risk                               | Impact   | Mitigation                                                                    |
-| ---------------------------------- | -------- | ----------------------------------------------------------------------------- |
-| **GitHub releases free SBOM tool** | Critical | Focus on VEX management + white-labeling (impossible for GitHub to replicate) |
-| **CRA deadline pushed to 2027**    | High     | Pivot messaging to "supply chain security" (evergreen need)                   |
-| **Low sales conversion**           | Medium   | Offer free tier (3 repos forever) to build user base                          |
+| Risk                               | Impact   | Mitigation                                      |
+| ---------------------------------- | -------- | ----------------------------------------------- |
+| **No one pays €49**                | Critical | Fall back to usage-based pricing (€5/report)    |
+| **GitHub releases free SBOM tool** | High     | Double down on white-labeling + VEX audit trail |
+| **CRA deadline extended**          | Medium   | Pivot to "supply chain security" messaging      |
 
 ---
 
-## 💰 Cost Structure (Monthly)
+## 💰 Cost Structure
 
-| Item                 | Cost (EUR)   | Notes                              |
-| -------------------- | ------------ | ---------------------------------- |
-| **AWS ECS Fargate**  | €50-200      | Scales with scan volume            |
-| **Supabase Pro**     | €25          | 8GB database, 50GB bandwidth       |
-| **AWS S3**           | €10          | PDF storage                        |
-| **AWS SES (Email)**  | €5           | Transactional emails               |
-| **Stripe**           | 2.9% + €0.25 | Per transaction                    |
-| **Domain + Hosting** | €10          | Vercel free tier + domain          |
-| **Total (Base)**     | **€100-250** | Break-even at 2 Agency subs (€298) |
+### **CLI-Only Phase (Weeks 1-8)**
 
----
+- **Total cost:** €50/month
+  - Railway (API for license validation): €5/month
+  - Domain (reguladocs.com): €10/year
+  - Email (SendGrid free tier): €0
+  - S3 for user logos: €5/month
+  - **Break-even:** 2 Pro licenses/month
 
-## 📊 Success Timeline
+### **SaaS Phase (Weeks 9-16)**
 
-```mermaid
-gantt
-    title RegulaDocs Development Timeline
-    dateFormat YYYY-MM-DD
-    section Phase 1: CLI MVP
-    Project Setup           :2025-01-01, 7d
-    SBOM Engine             :2025-01-08, 7d
-    Vulnerability Scanning  :2025-01-15, 7d
-    PDF Generation          :2025-01-22, 7d
-
-    section Phase 2: Backend
-    Database Schema         :2025-01-29, 7d
-    REST API                :2025-02-05, 7d
-    Job Queue               :2025-02-12, 7d
-    Smart Diffing           :2025-02-19, 7d
-
-    section Phase 3: Frontend
-    Next.js Auth            :2025-02-26, 7d
-    Project Management      :2025-03-05, 7d
-    VEX UI                  :2025-03-12, 7d
-    White-Labeling          :2025-03-19, 7d
-
-    section Phase 4: Launch
-    Stripe Integration      :2025-03-26, 7d
-    GitHub App              :2025-04-02, 7d
-    Security & Testing      :2025-04-09, 7d
-    Legal & Marketing       :2025-04-16, 7d
-```
+- **Total cost:** €80/month
+  - Railway (PostgreSQL + API): €15/month
+  - Redis Cloud: €10/month
+  - S3 (PDF storage): €10/month
+  - Email (SendGrid): €5/month
+  - Domain + Vercel: €10/month
+  - **Break-even:** 1 Agency subscription (€149)
 
 ---
 
-## 🎓 Learning Resources
+## 📊 Revenue Projections (CLI-First Model)
 
-### **Compliance & Standards**
+| Month       | Licenses Sold          | Revenue | MRR  | Notes         |
+| ----------- | ---------------------- | ------- | ---- | ------------- |
+| **Month 1** | 0                      | €0      | €0   | Building      |
+| **Month 2** | 5 (Pro)                | €245    | €0   | Beta sales    |
+| **Month 3** | 10 (Pro) + 2 (Agency)  | €788    | €100 | Word of mouth |
+| **Month 4** | 15 (Pro) + 5 (Agency)  | €1,480  | €300 | LinkedIn ads  |
+| **Month 6** | 30 (Pro) + 10 (Agency) | €2,960  | €800 | Break-even    |
 
-- [ ] Read EU CRA full text: [eur-lex.europa.eu](https://eur-lex.europa.eu/)
-- [ ] Study SBOM formats: [SPDX](https://spdx.dev/), [CycloneDX](https://cyclonedx.org/)
-- [ ] Understand VEX: [CISA VEX Guide](https://www.cisa.gov/sbom)
-
-### **Tools Documentation**
-
-- [ ] Syft: [github.com/anchore/syft](https://github.com/anchore/syft)
-- [ ] Grype: [github.com/anchore/grype](https://github.com/anchore/grype)
-- [ ] Supabase: [supabase.com/docs](https://supabase.com/docs)
+**Key Assumption:** 20% month-over-month growth from referrals.
 
 ---
 
-## ✅ Definition of Done (MVP Checklist)
+## ✅ Definition of Done (CLI MVP)
 
-### **Must Have (MVP Launch Criteria)**
+### **Must Have (Week 8 Launch)**
 
-- [ ] User can sign up and authenticate
-- [ ] User can add a GitHub repository
-- [ ] System scans repo and detects vulnerabilities
-- [ ] User can mark CVEs as "ignored" with justification
-- [ ] System generates a branded PDF report
-- [ ] PDF includes: Cover, SBOM, Vulnerabilities, VEX audit trail
-- [ ] User can upload agency logo for white-labeling
-- [ ] Stripe subscription working (€149 Agency tier)
-- [ ] Automatic weekly scans via GitHub webhook
-- [ ] Email notifications for new critical CVEs
-- [ ] Terms of Service + Privacy Policy live
+- [ ] CLI installs with one command
+- [ ] Scan detects packages for Node.js, Go, Python, Rust, Java
+- [ ] Vulnerabilities shown with traffic light severity
+- [ ] PDF looks professional (hireable designer if needed)
+- [ ] White-labeling works (logo + brand color)
+- [ ] License key validation works
+- [ ] Landing page with Stripe checkout
+- [ ] 5 real agencies tested and provided feedback
 
-### **Should Have (Week 17-20)**
+### **Should Have (Week 9-12)**
 
-- [ ] GitHub Marketplace listing
-- [ ] API documentation site (Docusaurus)
-- [ ] Slack integration for alerts
-- [ ] Multi-language support (German UI)
+- [ ] GitHub Releases automation
+- [ ] Homebrew tap (`brew install reguladocs`)
+- [ ] Windows installer (.exe)
+- [ ] CLI analytics (anonymous usage stats)
 
 ### **Could Have (Future)**
 
-- [ ] License compliance checking (GPL detection)
-- [ ] JIRA/Linear integration (auto-create tickets for CVEs)
-- [ ] Custom report templates (enterprise feature)
-- [ ] On-premise Docker container (self-hosted)
+- [ ] License compliance warnings (GPL detection)
+- [ ] Custom report templates (JSON → PDF)
+- [ ] JIRA/Linear integration
+- [ ] VS Code extension
 
 ---
 
 ## 📞 Next Immediate Actions
 
-### **Week 0 (Pre-Development)**
+### **This Week (Week 0)**
 
-1. **Validate Market (3 days)**
+1. **Validate Demand (2 days)**
 
-   - [ ] LinkedIn outreach to 50 agencies
-   - [ ] Offer free manual audit of their public repo
-   - [ ] Gauge interest in automation tool
+   - [ ] LinkedIn outreach to 30 agencies
+   - [ ] Manually generate 3 SBOM reports
+   - [ ] Email them: "I can automate this. Would you pay €49?"
 
-2. **Set Up Infrastructure (2 days)**
+2. **Set Up Dev Environment (1 day)**
 
-   - [ ] Register domain: `reguladocs.com`
-   - [ ] Create AWS account + enable billing alerts
-   - [ ] Set up Supabase project
-   - [ ] Create GitHub organization
+   - [ ] Install Go 1.21+
+   - [ ] Install Syft: `curl -sSfL https://raw.githubusercontent.com/anchore/syft/main/install.sh | sh`
+   - [ ] Install Grype: `curl -sSfL https://raw.githubusercontent.com/anchore/grype/main/install.sh | sh`
+   - [ ] Test on sample project
 
-3. **Legal Foundation (2 days)**
-   - [ ] Consult with IT lawyer (1-hour session, ~€200)
-   - [ ] Draft initial Terms of Service
-   - [ ] Set up business entity (if not already) - Sole proprietorship vs GmbH
+3. **Register Business Assets (1 day)**
+   - [ ] Buy domain: reguladocs.com (~€10)
+   - [ ] Create Stripe account
+   - [ ] Set up Railway account
 
-**Decision Point:** If 10+ agencies express interest → Green light to build.
-
----
-
-## 🚀 Launch Strategy (Week 16+)
-
-### **Day 1: Soft Launch**
-
-- Email 50 agencies from validation phase
-- Post on LinkedIn with demo video
-- Submit to r/SideProject (Reddit)
-
-### **Week 1: Content Blitz**
-
-- Publish: "How We Built a CRA Compliance Tool in 16 Weeks"
-- Guest post on DEV.to / Medium
-- Email law firms specializing in IT compliance
-
-### **Month 2: Partnerships**
-
-- Partner with boutique IT law firms (referral program)
-- List on GitHub Marketplace
-- Create Zapier integration (connect to 5000+ apps)
-
-### **Month 3: Scale**
-
-- Hire freelance sales VA for outbound
-- Run LinkedIn ads (€500 budget test)
-- Attend EU software agency conferences
+**Decision Point:** If 5+ agencies say "yes, I'd pay" → Start building on Monday.
 
 ---
 
-## 📈 Growth Projections (Conservative)
+## 🚀 Launch Strategy
 
-| Milestone                  | Timeline | MRR    | Customers   |
-| -------------------------- | -------- | ------ | ----------- |
-| **MVP Launch**             | Month 4  | €0     | 0           |
-| **First Paying Customers** | Month 5  | €447   | 3 agencies  |
-| **Break-Even**             | Month 6  | €1,341 | 9 agencies  |
-| **Ramen Profitable**       | Month 9  | €2,980 | 20 agencies |
-| **Full-Time Viable**       | Month 12 | €7,450 | 50 agencies |
+### **Week 8: CLI Launch**
 
-**Key Assumption:** 10% conversion from free tier to paid (industry standard for SaaS).
+- Email 50 agencies: "Free beta access + 50% off first license"
+- Post on HackerNews (Show HN: CRA compliance in 5 minutes)
+- LinkedIn post with demo video
+
+### **Month 3: Partnership Push**
+
+- Contact 10 IT law firms in Germany
+- Offer 20% revenue share for referrals
+- Create "Compliance Partner" badge for their website
+
+### **Month 6: Content Marketing**
+
+- Blog series: "CRA Compliance for Software Agencies"
+- Guest post on DEV.to
+- Podcast appearances (Indie Hackers, Syntax.fm)
 
 ---
 
 ## 🏁 Final Thoughts
 
-This plan is **deliberately aggressive but realistic**. Many SaaS businesses take 12-24 months to launch. We aim for 4 months because:
+This plan prioritizes **revenue over perfection**. Here's why CLI-first wins:
 
-1. **Legislative Deadline:** The CRA creates urgency.
-2. **Existing Tools:** Syft/Grype handle the hard parts.
-3. **Niche Focus:** Not competing with Snyk/Sonatype on depth, but on documentation workflow.
+1. **No hosting costs** - Users run it locally
+2. **Faster to ship** - 4-8 weeks vs 16 weeks for SaaS
+3. **Prove demand** - If no one pays €49, don't build SaaS
+4. **Simpler support** - No database, no auth, no scaling issues
 
-**The "Build vs. Buy" Test:** If you can build a feature in 2 weeks OR buy it for €100/month, build it (you're pre-revenue). After €5k MRR, prioritize customer feedback over roadmap.
+**The "2-Week Rule":** If you can ship something valuable in 2 weeks that customers will pay for, do it. Don't build the "perfect" SaaS if a CLI solves 80% of the problem.
 
-**Founder Bandwidth:** This assumes 40 hours/week dedicated. If part-time, double all timelines.
+**Validation Metric:** Get 10 paying customers for the CLI before writing a single line of SaaS code.
 
 ---
 
@@ -767,4 +625,4 @@ This plan is **deliberately aggressive but realistic**. Many SaaS businesses tak
 - [MVP-Technical.md](./MVP-Technical.md) - Technical architecture
 - [Execution-Playbook.md](./Execution-Playbook.md) - Business model
 
-**Built with discipline and urgency. Let's execute. 🚀**
+**Ship fast, validate hard, scale smart. 🚀**

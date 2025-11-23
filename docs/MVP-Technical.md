@@ -4,19 +4,21 @@ Goal: Build a scalable scanning pipeline that converts raw code into a legal doc
 1. The Tech Stack
    Core Engine: Syft (SBOM generation) + Grype (Vulnerability matching). Both are open-source (Apache 2.0) and CLI-based.
 
-Backend: Node.js (TypeScript) or Go.
+**MVP (CLI-First): Go**
 
-Why: You need strong handling of asynchronous processes and streams.
+Why: Single binary distribution, native concurrency for parsing large JSON files, easy Docker packaging, and potential to use Syft/Grype as Go libraries instead of shelling out.
 
-Database: Supabase (PostgreSQL).
+**Future SaaS Backend: Go + PostgreSQL**
 
-Why: Relational data is strict here. You need to map Projects -> Scans -> Components -> Vulnerabilities -> User Decisions (Ignore/Fix).
+Database: PostgreSQL on Railway/Render (not Supabase - avoid vendor lock-in).
 
-Infrastructure: AWS (Fargate or Lambda) + SQS (Queue).
+Why: Relational data for Projects -> Scans -> Components -> Vulnerabilities -> VEX Decisions.
 
-Critical: Scans can take 2-10 minutes. You cannot do this in a standard HTTP request-response cycle. You need a background worker.
+Infrastructure: Railway (MVP hosting, $5/month) -> AWS (scale phase).
 
-Frontend: Next.js (React) + Tailwind CSS.
+Critical: For SaaS version, scans run as background jobs. For CLI MVP, they run synchronously - simpler but works perfectly for initial users.
+
+**Future Frontend: Next.js (React) + Tailwind CSS** (only if SaaS demand exists).
 
 2. Architecture Diagram (Conceptual)
    Trigger: User connects GitHub App -> Webhook sends payload to API.
