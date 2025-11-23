@@ -115,14 +115,14 @@ To prevent "alert fatigue," you can define false positives or accepted risks. Th
 
 - **Core:** Go (single binary, zero dependencies)
 - **Scanning Engine:** [Syft](https://github.com/anchore/syft) & [Grype](https://github.com/anchore/grype)
-- **Database (SaaS ver.):** PostgreSQL (Railway/Render)
+- **Database (SaaS version):** PostgreSQL (Railway/Render)
 - **PDF Engine:** Go-based HTML → PDF renderer (wkhtmltopdf/chromedp)
 
 ---
 
 ## 🗺️ Roadmap
 
-- [x] **v0.1:** Local CLI scanner with SBOM generation.
+- [] **v0.1:** Local CLI scanner with SBOM generation.
 - [ ] **v0.2:** PDF Report generation with "Traffic Light" summary.
 - [ ] **v0.3:** VEX (ignore rules) implementation with `.vex-config.json`.
 - [ ] **v0.4:** License key system for white-labeling (paid feature).
